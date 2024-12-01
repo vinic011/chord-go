@@ -14,7 +14,6 @@ func NewRing() *Ring {
 		Nodes: make([]*Node, 0),
 	}
 
-	// Create the first node
 	firstNode := NewNode(0, strconv.Itoa(10000))
 	firstNode.Join(nil)
 	ring.Nodes = append(ring.Nodes, firstNode)

@@ -118,7 +118,6 @@ func (node *Node) sendMessage(msg Message, addr *net.UDPAddr) {
 	}
 }
 
-// closestPrecedingNode finds the closest preceding node for the given key.
 func (node *Node) closestPrecedingNode(key int) *NodeInfo {
 	node.mutex.Lock()
 	defer node.mutex.Unlock()
@@ -147,7 +146,7 @@ func (node *Node) FixFingers() {
 func (node *Node) Stabilize() {
 	for {
 		time.Sleep(1 * time.Second)
-		// Get successor's predecessor
+
 		node.requestMutex.Lock()
 		requestID := node.nextRequestID
 		node.nextRequestID++
@@ -163,7 +162,6 @@ func (node *Node) Stabilize() {
 		}
 		node.sendMessage(msg, node.Successor.Address)
 
-		// Wait for response
 		select {
 		case responseMsg := <-responseChan:
 			node.requestMutex.Lock()
@@ -243,7 +241,6 @@ func (node *Node) sendFindSuccessor(target *NodeInfo, id int) *NodeInfo {
 
 	node.sendMessage(msg, target.Address)
 
-	// Wait for response
 	select {
 	case responseMsg := <-responseChan:
 		node.requestMutex.Lock()
