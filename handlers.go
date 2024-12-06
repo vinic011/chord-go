@@ -6,36 +6,37 @@ import (
 )
 
 func (node *Node) handleStore(msg Message) {
-	key := msg.Key % RingSize
+	originalKey := msg.Key
+	hashedKey := originalKey % RingSize
 	if node.Predecessor == nil {
 		node.mutex.Lock()
-		node.Data[key] = msg.Value
+		node.Data[originalKey] = msg.Value
 		node.mutex.Unlock()
-		println("Node", node.ID, "stored key", key, "with value '"+msg.Value+"'")
+		println("Node", node.ID, "stored key", originalKey, "with value '"+msg.Value+"'")
 		return
 	}
-	if IsInInterval(key, node.Predecessor.ID, node.ID, true) {
+	if IsInInterval(hashedKey, node.Predecessor.ID, node.ID, true) {
 		node.mutex.Lock()
-		node.Data[key] = msg.Value
+		node.Data[originalKey] = msg.Value
 		node.mutex.Unlock()
-		println("Node", node.ID, "stored key", key, "with value '"+msg.Value+"'")
+		println("Node", node.ID, "stored key", originalKey, "with value '"+msg.Value+"'")
 	} else {
-		next := node.closestPrecedingNode(key)
-		msg.Key = key
+		next := node.closestPrecedingNode(hashedKey)
 		node.sendMessage(msg, next.Address)
 	}
 }
 
 func (node *Node) handleRetrieve(msg Message, addr *net.UDPAddr) {
-	key := msg.Key % RingSize
+	originalKey := msg.Key
+	hashedKey := originalKey % RingSize
 	if node.Predecessor == nil {
 		node.mutex.Lock()
-		value, exists := node.Data[key]
+		value, exists := node.Data[originalKey]
 		node.mutex.Unlock()
 		if exists {
 			reply := Message{
 				Type:       "RETRIEVE_REPLY",
-				Key:        key,
+				Key:        originalKey,
 				Value:      value,
 				SenderID:   node.ID,
 				Address:    node.Address,
@@ -44,18 +45,18 @@ func (node *Node) handleRetrieve(msg Message, addr *net.UDPAddr) {
 			}
 			node.sendMessage(reply, msg.OriginAddr)
 		} else {
-			log.Printf("Key %d not found at Node %d", key, node.ID)
+			log.Printf("Key %d not found at Node %d", originalKey, node.ID)
 		}
 		return
 	}
-	if IsInInterval(key, node.Predecessor.ID, node.ID, true) {
+	if IsInInterval(hashedKey, node.Predecessor.ID, node.ID, true) {
 		node.mutex.Lock()
-		value, exists := node.Data[key]
+		value, exists := node.Data[originalKey]
 		node.mutex.Unlock()
 		if exists {
 			reply := Message{
 				Type:       "RETRIEVE_REPLY",
-				Key:        key,
+				Key:        originalKey,
 				Value:      value,
 				SenderID:   node.ID,
 				Address:    node.Address,
@@ -64,11 +65,10 @@ func (node *Node) handleRetrieve(msg Message, addr *net.UDPAddr) {
 			}
 			node.sendMessage(reply, msg.OriginAddr)
 		} else {
-			log.Printf("Key %d not found at Node %d", key, node.ID)
+			log.Printf("Key %d not found at Node %d", originalKey, node.ID)
 		}
 	} else {
-		next := node.closestPrecedingNode(key)
-		msg.Key = key
+		next := node.closestPrecedingNode(hashedKey)
 		msg.Address = addr
 		node.sendMessage(msg, next.Address)
 	}
@@ -81,14 +81,15 @@ func (node *Node) handleRetrieveReply(msg Message) {
 }
 
 func (node *Node) handleFindSuccessorMsg(msg Message) {
-	id := msg.Key % RingSize
+	originalKey := msg.Key
+	hashedKey := originalKey % RingSize
 	node.mutex.Lock()
 	successor := node.Successor
 	node.mutex.Unlock()
 	if successor == nil {
 		response := Message{
 			Type:      "FIND_SUCCESSOR_REPLY",
-			Key:       id,
+			Key:       originalKey,
 			SenderID:  node.ID,
 			Address:   node.Address,
 			RequestID: msg.RequestID,
@@ -96,21 +97,21 @@ func (node *Node) handleFindSuccessorMsg(msg Message) {
 		node.sendMessage(response, msg.Address)
 		return
 	}
-	if IsInInterval(id, node.ID, successor.ID, true) {
+	if IsInInterval(hashedKey, node.ID, successor.ID, true) {
 		response := Message{
 			Type:      "FIND_SUCCESSOR_REPLY",
-			Key:       id,
+			Key:       originalKey,
 			SenderID:  successor.ID,
 			Address:   successor.Address,
 			RequestID: msg.RequestID,
 		}
 		node.sendMessage(response, msg.Address)
 	} else {
-		n0 := node.closestPrecedingNode(id)
-		if n0.ID == node.ID && !IsInInterval(id, node.ID, successor.ID, true) {
+		n0 := node.closestPrecedingNode(hashedKey)
+		if n0.ID == node.ID && !IsInInterval(hashedKey, node.ID, successor.ID, true) {
 			response := Message{
 				Type:      "FIND_SUCCESSOR_REPLY",
-				Key:       id,
+				Key:       originalKey,
 				SenderID:  successor.ID,
 				Address:   successor.Address,
 				RequestID: msg.RequestID,
@@ -118,7 +119,6 @@ func (node *Node) handleFindSuccessorMsg(msg Message) {
 			node.sendMessage(response, msg.Address)
 			return
 		}
-		msg.Key = id
 		node.sendMessage(msg, n0.Address)
 	}
 }

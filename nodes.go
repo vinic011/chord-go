@@ -86,27 +86,27 @@ func (node *Node) listen() {
 	}
 }
 
-func (node *Node) findSuccessor(id int) *NodeInfo {
-	id = id % RingSize
+func (node *Node) findSuccessor(originalKey int) *NodeInfo {
+	hashedKey := originalKey % RingSize
 	node.mutex.Lock()
 	successor := node.Successor
 	node.mutex.Unlock()
 	if successor == nil {
 		return NodeToNodeInfo(node)
 	}
-	if IsInInterval(id, node.ID, successor.ID, true) {
+	if IsInInterval(hashedKey, node.ID, successor.ID, true) {
 		return successor
 	} else {
-		next := node.closestPrecedingNode(id)
+		next := node.closestPrecedingNode(hashedKey)
 		if next.ID == node.ID {
 			return successor
 		}
-		return node.sendFindSuccessor(next, id)
+		return node.sendFindSuccessor(next, originalKey)
 	}
 }
 
-func (node *Node) sendFindSuccessor(target *NodeInfo, id int) *NodeInfo {
-	id = id % RingSize
+func (node *Node) sendFindSuccessor(target *NodeInfo, originalKey int) *NodeInfo {
+	hashedKey := originalKey % RingSize
 	node.requestMutex.Lock()
 	requestID := node.nextRequestID
 	node.nextRequestID++
@@ -115,7 +115,7 @@ func (node *Node) sendFindSuccessor(target *NodeInfo, id int) *NodeInfo {
 	node.requestMutex.Unlock()
 	msg := Message{
 		Type:      "FIND_SUCCESSOR",
-		Key:       id,
+		Key:       originalKey,
 		SenderID:  node.ID,
 		Address:   node.Address,
 		RequestID: requestID,
@@ -134,13 +134,12 @@ func (node *Node) sendFindSuccessor(target *NodeInfo, id int) *NodeInfo {
 		node.requestMutex.Lock()
 		delete(node.pendingRequests, requestID)
 		node.requestMutex.Unlock()
-		log.Printf("Timeout esperando FIND_SUCCESSOR_REPLY para chave %d no Node %d", id, node.ID)
+		log.Printf("Timeout esperando FIND_SUCCESSOR_REPLY para chave %d no Node %d", hashedKey, node.ID)
 		return node.Successor
 	}
 }
 
 func (node *Node) Store(key int, value string) {
-	key = key % RingSize
 	msg := Message{
 		Type:     "STORE",
 		Key:      key,
@@ -152,7 +151,6 @@ func (node *Node) Store(key int, value string) {
 }
 
 func (node *Node) Retrieve(key int) {
-	key = key % RingSize
 	msg := Message{
 		Type:       "RETRIEVE",
 		Key:        key,
