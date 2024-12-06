@@ -13,11 +13,9 @@ func NewRing() *Ring {
 	ring := &Ring{
 		Nodes: make([]*Node, 0),
 	}
-
 	firstNode := NewNode(0, strconv.Itoa(10000))
 	firstNode.Join(nil)
 	ring.Nodes = append(ring.Nodes, firstNode)
-
 	return ring
 }
 
@@ -33,6 +31,7 @@ func (ring *Ring) AddNode(id int) {
 }
 
 func (ring *Ring) Print() {
+	fmt.Println("********************************")
 	for _, node := range ring.Nodes {
 		node.mutex.Lock()
 		successorID := -1
